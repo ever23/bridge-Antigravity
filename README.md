@@ -21,7 +21,7 @@
 ## 🚀 Instalación y Configuración
 
 ### Instalación vía VSIX
-1. Descarga el archivo `antigravity-extension-1.0.0.vsix` de la carpeta `extencion/`.
+1. Descarga el archivo `antigravity-extension-1.0.0.vsix`.
 2. En VS Code, ve a la vista de **Extensions** (`Ctrl+Shift+X`).
 3. Haz clic en el menú superior de tres puntos (`...`) y selecciona **Install from VSIX...**.
 4. Selecciona el archivo y espera a la notificación de éxito.
