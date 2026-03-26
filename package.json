@@ -1,0 +1,56 @@
+{
+  "name": "antigravity-extension",
+  "displayName": "Antigravity Mobile Bridge",
+  "description": "Extends your IDE with a secure mobile bridge — send prompts, receive agent responses, and run terminal commands from your phone.",
+  "version": "1.0.0",
+  "publisher": "ever23",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ever23/puente-Antigravity"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "antigravity.start",
+        "title": "Antigravity: Start Mobile Bridge"
+      },
+      {
+        "command": "antigravity.stop",
+        "title": "Antigravity: Stop Mobile Bridge"
+      },
+      {
+        "command": "antigravity.showQR",
+        "title": "Antigravity: Show Connection QR"
+      }
+    ]
+  },
+  "scripts": {
+    "postinstall": "npm install @vscode/test-electron --save-dev"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^8.34.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "express-socket.io-session": "^1.3.5",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.6.1",
+    "sqlite3-tab": "^2.0.0",
+    "tabla-model": "^2.0.0"
+  }
+}

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Antigravity Bridge</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        :root {
+            --bg-deep: #0f0f14;
+            --bg-panel: #16161e;
+            --bg-bubble-user: #1f2335;
+            --bg-bubble-agent: #24283b;
+            --accent: #7aa2f7;
+            --accent-glow: rgba(122, 162, 247, 0.15);
+            --text-main: #c0caf5;
+            --text-dim: #9aa5ce;
+            --text-bright: #ffffff;
+            --border: rgba(255, 255, 255, 0.08);
+            --success: #9ece6a;
+            --warning: #e0af68;
+            --error: #f7768e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, sans-serif;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            padding: 1.25rem 1.5rem;
+            background: rgba(15, 15, 20, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        h1 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-bright);
+        }
+
+        /* Chat Container */
+        #chat-container {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .message {
+            max-width: 90%;
+            padding: 1rem 1.25rem;
+            border-radius: 1rem;
+            font-size: 0.95rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sent {
+            align-self: flex-end;
+            background: var(--bg-bubble-user);
+            color: var(--text-bright);
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .received {
+            align-self: flex-start;
+            background: var(--bg-bubble-agent);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        /* Structured Agent Response */
+        .ag-json-response { display: flex; flex-direction: column; gap: 0.75rem; }
+        .ag-plan { 
+            background: rgba(0, 0, 0, 0.2); 
+            padding: 0.85rem; 
+            border-radius: 0.5rem; 
+            border-left: 3px solid var(--accent);
+        }
+        .ag-plan strong { font-size: 0.75rem; color: var(--accent); display: block; margin-bottom: 0.5rem; }
+        .ag-plan li { font-size: 0.85rem; margin-bottom: 0.25rem; list-style: none; }
+        .ag-plan li::before { content: "•"; color: var(--accent); margin-right: 0.5rem; }
+        .ag-status { font-size: 0.7rem; color: var(--text-dim); text-align: right; }
+
+        /* Suggested Command Widget */
+        .cmd-widget {
+            background: var(--bg-panel);
+            border: 1px solid var(--accent);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .cmd-widget span { font-size: 0.7rem; color: var(--accent); font-weight: 700; display: block; margin-bottom: 0.5rem; }
+        .cmd-widget code { display: block; background: #000; padding: 0.6rem; border-radius: 0.4rem; font-size: 0.8rem; margin-bottom: 0.8rem; }
+        .btn-suggested {
+            background: var(--accent);
+            color: var(--bg-deep);
+            border: none;
+            width: 100%;
+            padding: 0.6rem;
+            border-radius: 0.4rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Terminal Panel */
+        #terminal-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 45vh;
+            background: #000;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            border-top: 1px solid var(--accent);
+            box-shadow: 0 -10px 50px rgba(0,0,0,0.8);
+        }
+
+        .terminal-header {
+            padding: 0.75rem 1rem;
+            background: var(--bg-panel);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #terminal-output {
+            flex: 1;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-y: auto;
+            color: #a6adc8;
+        }
+
+        .terminal-prompt { color: var(--accent); margin-right: 0.5rem; }
+        .caret { display: inline-block; width: 8px; height: 1.1rem; background: var(--accent); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Footer */
+        .footer {
+            padding: 1rem;
+            background: var(--bg-deep);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        }
+
+        #prompt-input-container { flex: 1; background: var(--bg-panel); border-radius: 1rem; border: 1px solid var(--border); }
+        #prompt-input { 
+            width: 100%; 
+            background: transparent; 
+            border: none; 
+            padding: 0.75rem 1rem; 
+            color: #fff; 
+            outline: none; 
+            resize: none; 
+            font-size: 1rem;
+        }
+
+        #send-btn {
+            background: var(--accent);
+            border: none;
+            width: 3.25rem;
+            height: 3.25rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(122, 162, 247, 0.3);
+        }
+        #send-btn svg { fill: var(--bg-deep); width: 1.5rem; }
+
+        #terminal-toggle {
+            position: fixed;
+            bottom: 6rem;
+            right: 1.5rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            z-index: 90;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo-area">
+            <div class="status-dot"></div>
+            <h1>Antigravity Bridge</h1>
+        </div>
+        <div class="header-actions">
+            <button id="clear-btn" class="action-icon">🗑️</button>
+            <button id="logout-btn" class="action-icon">Salir</button>
+        </div>
+    </header>
+
+    <div id="chat-container"></div>
+
+    <button id="terminal-toggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+    </button>
+
+    <div id="terminal-panel">
+        <div class="terminal-header">
+            <span style="font-size:0.75rem; color:var(--accent); font-weight:700;">TERMINAL</span>
+            <div style="display:flex; gap:0.5rem;">
+                <button id="term-send" style="background:var(--accent); border:none; padding:0.2rem 0.5rem; border-radius:0.3rem; font-size:0.75rem; font-weight:700;">ENVIAR</button>
+                <button onclick="document.getElementById('terminal-panel').style.display='none'" style="background:transparent; border:none; color:#fff;">✕</button>
+            </div>
+        </div>
+        <div id="terminal-output" onclick="focusTerminal()">
+            <div id="terminal-history"></div>
+            <div id="term-cursor-line">
+                <span class="terminal-prompt">PS C:\></span>
+                <span id="term-visual-text"></span>
+                <span class="caret"></span>
+            </div>
+        </div>
+        <input type="text" id="term-hidden-input" autocomplete="off">
+    </div>
+
+    <div class="footer">
+        <div id="prompt-input-container">
+            <textarea id="prompt-input" disabled placeholder="Escribe un comando..." rows="1"></textarea>
+        </div>
+        <button id="send-btn">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+        </button>
+    </div>
+    
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const promptInput = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        const socket = io({ auth: { token: token } });
+
+        // --- Utilidades de UI ---
+        function scrollToBottom() {
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addHTMLMessage(htmlContent, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = htmlContent;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function renderAgentJSON(parsed, rawFallback) {
+            try {
+                let html = `<div class="ag-json-response">`;
+                if (parsed.mensaje) {
+                    const renderedMsg = marked.parse(parsed.mensaje);
+                    html += `<div class="ag-msg">${renderedMsg}</div>`;
+                } else {
+                    html += `<div class="ag-msg">🤖 Respuesta recibida</div>`;
+                }
+
+                if (parsed.comando_sugerido) {
+                    const encodedCmd = btoa(unescape(encodeURIComponent(parsed.comando_sugerido)));
+                    const encodedDir = parsed.directorio_objetivo ? btoa(unescape(encodeURIComponent(parsed.directorio_objetivo))) : '';
+                    
+                    html += `<div class="cmd-widget">
+                        <span>Comando Sugerido</span>
+                        <code>${parsed.comando_sugerido}</code>
+                        <button class="btn-suggested" onclick="fillAndShowTerminal(atob('${encodedCmd}'), '${encodedDir}' ? atob('${encodedDir}') : '')">⚡ Usar en Terminal</button>
+                    </div>`;
+                }
+
+                if (parsed.plan && Array.isArray(parsed.plan) && parsed.plan.length > 0) {
+                    html += `<div class="ag-plan"><strong>Plan de Acción 📝</strong><ul>`;
+                    parsed.plan.forEach(item => {
+                        let safeItem = item;
+                        try {
+                            safeItem = marked.parse(item).replace(/^<p>/, '').replace(/<\/p>\n?$/, '');
+                        } catch(e) {}
+                        html += `<li>${safeItem}</li>`;
+                    });
+                    html += `</ul></div>`;
+                }
+
+                if (parsed.estado) {
+                    html += `<div class="ag-status"><span>⚡ ESTADO:</span> ${parsed.estado}</div>`;
+                }
+                html += `</div>`;
+                addHTMLMessage(html, 'received');
+            } catch (err) {
+                console.error("Error renderizando JSON enriquecido:", err);
+                const renderedFallback = marked.parse(rawFallback || '');
+                addHTMLMessage(renderedFallback, 'received');
+            }
+        }
+
+        // --- Eventos de Socket ---
+        socket.on('connect', () => {
+            const dot = document.querySelector('.status-dot');
+            if(dot) {
+                dot.style.background = 'var(--success)';
+                dot.style.boxShadow = '0 0 10px var(--success)';
+            }
+            promptInput.disabled = false;
+            addMessage('🟢 Conectado al IDE Antigravity', 'received');
+        });
+
+        socket.on('disconnect', () => {
+            const dot = document.querySelector('.status-dot');
+            if(dot) {
+                dot.style.background = 'var(--error)';
+                dot.style.boxShadow = '0 0 10px var(--error)';
+            }
+            promptInput.disabled = true;
+        });
+
+        socket.on('chat_history', (history) => {
+            chatContainer.innerHTML = '';
+            history.forEach(msg => {
+                if (msg.role === 'user') {
+                    addMessage(msg.content, 'sent');
+                } else {
+                    try {
+                        let cleanJson = msg.content.trim();
+                        if (cleanJson.startsWith('```json')) cleanJson = cleanJson.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+                        else if (cleanJson.startsWith('```')) cleanJson = cleanJson.replace(/^```\n?/, '').replace(/\n?```$/, '');
+                        const parsed = JSON.parse(cleanJson);
+                        renderAgentJSON(parsed, msg.content);
+                    } catch (e) {
+                        addHTMLMessage(marked.parse(msg.content), 'received');
+                    }
+                }
+            });
+            hljs.highlightAll();
+        });
+
+        socket.on('prompt_sent', (data) => {
+            const existing = document.getElementById('loading-msg');
+            if (existing) existing.remove();
+            
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-msg';
+            loadingDiv.className = 'message received';
+            loadingDiv.innerHTML = `<span style="opacity:0.6">⏳ ${data.message}</span>`;
+            chatContainer.appendChild(loadingDiv);
+            scrollToBottom();
+        });
+
+        socket.on('agent_response', (data) => {
+            const loadingMsg = document.getElementById('loading-msg');
+            if (loadingMsg) loadingMsg.remove();
+
+            try {
+                let cleanJson = data.response.trim();
+                if (cleanJson.startsWith('```json')) {
+                    cleanJson = cleanJson.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+                } else if (cleanJson.startsWith('```')) {
+                    cleanJson = cleanJson.replace(/^```\n?/, '').replace(/\n?```$/, '');
+                }
+                renderAgentJSON(JSON.parse(cleanJson), data.response);
+            } catch (err) {
+                addHTMLMessage(marked.parse(data.response), 'received');
+            }
+            hljs.highlightAll();
+        });
+
+        socket.on('error', (data) => addMessage('❌ Error: ' + data.message, 'received'));
+        socket.on('logout', (data) => {
+            window.location.href = 'login.html';
+        });
+
+        // --- Lógica de Envío ---
+        function sendPrompt() {
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+            addMessage(prompt, 'sent');
+            socket.emit('send_prompt', { prompt: prompt });
+            promptInput.value = '';
+            promptInput.style.height = 'auto';
+            promptInput.focus();
+        }
+
+        sendBtn.addEventListener('click', sendPrompt);
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPrompt();
+            }
+        });
+
+        promptInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            chatContainer.innerHTML = '<div class="message received"><div class="ag-msg">Historial limpiado.</div></div>';
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/logout', { method: 'POST' });
+                if (response.ok) {
+                    document.body.style.opacity = '0';
+                    document.body.style.transition = 'opacity 0.5s';
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 500);
+                } else {
+                    console.error('Error al cerrar sesión');
+                }
+            } catch (error) {
+                console.error('Error de red:', error);
+            }
+        });
+
+        // --- Terminal CLI ---
+        const terminalPanel = document.getElementById('terminal-panel');
+        const terminalOutput = document.getElementById('terminal-output');
+        const terminalHistory = document.getElementById('terminal-history');
+        const termHiddenInput = document.getElementById('term-hidden-input');
+        const termVisualText = document.getElementById('term-visual-text');
+        const termSendBtn = document.getElementById('term-send');
+
+        document.getElementById('terminal-toggle').addEventListener('click', () => {
+            terminalPanel.style.display = (terminalPanel.style.display === 'flex') ? 'none' : 'flex';
+            if (terminalPanel.style.display === 'flex') termHiddenInput.focus();
+        });
+
+        termHiddenInput.addEventListener('input', () => {
+            termVisualText.textContent = termHiddenInput.value;
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        });
+
+        let currentTargetDir = '';
+        function fillAndShowTerminal(cmd, dir) {
+            termHiddenInput.value = cmd;
+            termVisualText.textContent = cmd;
+            if (dir) currentTargetDir = dir;
+            terminalPanel.style.display = 'flex';
+            termHiddenInput.focus();
+        }
+
+        function runCommand() {
+            const cmd = termHiddenInput.value.trim();
+            if (!cmd) return;
+            const promptPath = currentTargetDir || 'C:\\';
+            terminalHistory.innerHTML += `<div><span class="terminal-prompt">PS ${promptPath}&gt;</span> ${cmd}</div>`;
+            socket.emit('execute_terminal_command', { command: cmd, cwd: currentTargetDir });
+            termHiddenInput.value = '';
+            termVisualText.textContent = '';
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+
+        termSendBtn.addEventListener('click', runCommand);
+        termHiddenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCommand(); });
+
+        socket.on('terminal_output', (data) => {
+            const color = data.isError ? 'var(--error)' : 'var(--text-bright)'; // Changed from --success to --text-bright for general output
+            terminalHistory.innerHTML += `<div style="color:${color}">${data.output}</div>`;
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        });
+    </script>
+</body>
+
+</html>
