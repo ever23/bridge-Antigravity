@@ -2,7 +2,7 @@
   "name": "antigravity-extension",
   "displayName": "Antigravity Mobile Bridge",
   "description": "Extends your IDE with a secure mobile bridge — send prompts, receive agent responses, and run terminal commands from your phone.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "ever23",
   "license": "MIT",
   "repository": {

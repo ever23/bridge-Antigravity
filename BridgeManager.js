@@ -19,7 +19,12 @@ class BridgeManager {
         this.contextManager = new ContextManager();
         this.app = express();
         this.server = http.createServer(this.app);
-        this.io = new Server(this.server);
+        this.io = new Server(this.server, {
+            cors: {
+                origin: "*",
+                methods: ["GET", "POST"]
+            }
+        });
         this.port = 3000;
         this.isRunning = false;
         
@@ -30,6 +35,7 @@ class BridgeManager {
 
         // Token de sesión único
         this.sessionToken = crypto.randomBytes(16).toString('hex');
+        this.qrPanel = null;
     }
 
     async start() {
@@ -67,11 +73,11 @@ class BridgeManager {
         this.setupSocket();
         this.startWatcher();
 
+        this.ip = this.getLocalIP();
+
         this.server.listen(this.port, '0.0.0.0', () => {
-            const ip = this.getLocalIP();
-            this.ip = ip;
-            console.log(`[Bridge] Listening on http://${ip}:${this.port}`);
-            vscode.window.showInformationMessage(`Antigravity Bridge active on http://${ip}:${this.port}`);
+            console.log(`[Bridge] Listening on http://${this.ip}:${this.port}`);
+            vscode.window.showInformationMessage(`Antigravity Bridge active on http://${this.ip}:${this.port}`);
         });
 
         this.isRunning = true;
@@ -90,6 +96,11 @@ class BridgeManager {
 
         this.io.on('connection', async (socket) => {
             console.log(`[WS] Client connected: ${socket.id}`);
+
+            // Notificar al panel QR si está abierto
+            if (this.qrPanel) {
+                this.qrPanel.webview.postMessage({ command: 'connected' });
+            }
 
             // Load history
             try {
@@ -259,16 +270,24 @@ class BridgeManager {
         const url = `http://${this.ip}:${this.port}?token=${this.sessionToken}`;
         const qrDataUri = await QRManager.generateQR(url);
         
-        const panel = vscode.window.createWebviewPanel(
-            'antigravityQR',
-            'Antigravity Connect',
-            vscode.ViewColumn.Two,
-            {
-                enableScripts: true
-            }
-        );
+        if (this.qrPanel) {
+            this.qrPanel.reveal(vscode.ViewColumn.Two);
+        } else {
+            this.qrPanel = vscode.window.createWebviewPanel(
+                'antigravityQR',
+                'Antigravity Connect',
+                vscode.ViewColumn.Two,
+                {
+                    enableScripts: true
+                }
+            );
 
-        panel.webview.html = QRManager.getWebviewContent(qrDataUri, url);
+            this.qrPanel.onDidDispose(() => {
+                this.qrPanel = null;
+            }, null, this.context.subscriptions);
+        }
+
+        this.qrPanel.webview.html = QRManager.getWebviewContent(qrDataUri, url);
     }
 }
 
