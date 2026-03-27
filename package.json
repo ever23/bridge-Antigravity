@@ -5,6 +5,7 @@
   "version": "1.0.1",
   "publisher": "ever23",
   "license": "MIT",
+  "icon": "logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/ever23/puente-Antigravity"

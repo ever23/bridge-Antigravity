@@ -1,4 +1,5 @@
 # Antigravity Mobile Bridge: Extensión Nativa 🌉
+![Logo](logo.png)
 
 **Antigravity Mobile Bridge** es la evolución definitiva del puente de desarrollo móvil, ahora integrada como una **Extensión Nativa de VS Code**. Permite transformar cualquier smartphone en una potente estación de control para tu IDE, con ejecución remota, persistencia de datos y un ciclo de retroalimentación autónomo para la IA.
 
